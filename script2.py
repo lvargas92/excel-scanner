@@ -1,36 +1,43 @@
 import pandas as pd
 
-# Ruta del archivo Excel
-file_path = 'archivo_excel.xlsx'
-sheet = 'Hoja1'
+def process_excel_column(file_path, sheet_name, column_name, data_type):
+    # Cargando el archivo Excel
+    try:
+        df = pd.read_excel(file_path, sheet_name=sheet_name)
+    except FileNotFoundError:
+        return "Error: No se encontró el archivo."
+    except Exception as e:
+        return f"Error: {str(e)}"
 
-try:
-    df = pd.read_excel(file_path, sheet_name=sheet)
+    # Verificando si la columna existe
+    if column_name not in df.columns:
+        return f"Error: La columna '{column_name}' no existe en la hoja '{sheet_name}'."
 
-    # Convertir la columna 'Remuneracion*' a tipo de datos de cadena (str)
-    df['Remuneracion*'] = df['Remuneracion*'].astype(str)
+    # Procesando la columna
+    errors = []
+    for idx, value in enumerate(df[column_name], start=2):  # Comenzamos desde la segunda fila considerando la cabecera
+        try:
+            # Intentar convertir el valor al tipo de dato especificado
+            converted_value = data_type(value)
+        except (ValueError, TypeError):
+            # Si no se puede convertir, mantener el valor original y agregar a la lista de errores
+            errors.append((idx, value))
 
-    # Reemplazar comas con puntos en la columna 'Remuneracion*'
-    df['Remuneracion*'] = df['Remuneracion*'].str.replace(',', '.')
+    # Escribiendo los resultados en un archivo de texto
+    output_file = "errores.log"
+    with open(output_file, "w") as f:
+        for error in errors:
+            f.write(f"Fila {error[0]}: {error[1]}\n")
 
-    # Imprimir la columna 'Remuneracion*' para verificar si se ha reemplazado correctamente
-    print(df['Remuneracion*'])
+    if errors:
+        return f"Se encontraron errores en los datos. Los detalles se han guardado en '{output_file}'."
+    else:
+        return "No se encontraron errores en los datos."
 
-    # Convertir la columna Remuneracion* a tipo float
-    df['FecNacimiento*'] = df['FecNacimiento*'].astype('datetime64[ns]')
+# Ejemplo de uso
+file_path = "sctr_sanitas.xlsx"  # Cambia esto al path de tu archivo Excel
+sheet_name = "Afiliados"         # Cambia esto al nombre de tu hoja específica
+column_name = "Remuneracion*"     # Cambia esto al nombre de la columna que quieres procesar
+data_type = float            # Cambia esto al tipo de dato que deseas (int, float, datetime, etc)
 
-    # Guardar las primeras 100 filas en un archivo CSV
-    df.head(100).to_csv('primeras_100_filas.csv', index=False)
-except ValueError as e:
-    # Capturar el error de conversión
-    print("Error de conversión encontrado:")
-    print(e)
-
-    # Obtener la posición de la celda con el error
-    # Esto solo funciona si sabes cuál es la última operación que causó el error
-    fila = int(str(e).split('occurred at index ')[1])
-    columna = str(e).split('for ')[1].split(' ')[0]
-    
-    print("Posición de la celda con error:")
-    print("Fila:", fila)
-    print("Columna:", columna)
+print(process_excel_column(file_path, sheet_name, column_name, data_type))
